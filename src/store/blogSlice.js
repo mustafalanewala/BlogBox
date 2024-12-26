@@ -1,62 +1,142 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import { databases, DATABASE_ID, COLLECTION_ID, storage, BUCKET_ID } from '../appwrite'
-import { Query } from 'appwrite'
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {
+  databases,
+  DATABASE_ID,
+  COLLECTION_ID,
+  storage,
+  BUCKET_ID,
+} from "../appwrite";
+import { Query } from "appwrite";
+import { account } from "../appwrite";
 
-export const fetchBlogs = createAsyncThunk('blog/fetchBlogs', async () => {
-  const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID)
-  return response.documents
-})
-
-export const fetchBlogBySlug = createAsyncThunk('blog/fetchBlogBySlug', async (slug) => {
-  const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [Query.equal('slug', slug)])
-  return response.documents[0]
-})
-
-export const createBlog = createAsyncThunk('blog/createBlog', async ({ title, content, image }) => {
-  const slug = title.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '')
-  
-  let imageUrl = ''
-  if (image) {
-    const fileUpload = await storage.createFile(BUCKET_ID, 'unique()', image)
-    imageUrl = storage.getFileView(BUCKET_ID, fileUpload.$id)
+// Fetch blog by slug
+export const fetchBlogBySlug = createAsyncThunk(
+  "blog/fetchBlogBySlug",
+  async (slug) => {
+    const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
+      Query.equal("slug", slug),
+    ]);
+    return response.documents[0];
   }
+);
 
-  const blog = await databases.createDocument(DATABASE_ID, COLLECTION_ID, 'unique()', {
-    title,
-    content,
-    slug,
-    image: imageUrl,
-    userId: 'current', // This will be replaced with the actual user ID by Appwrite
-  })
-
-  return blog
-})
-
-export const updateBlog = createAsyncThunk('blog/updateBlog', async ({ id, title, content, image }) => {
-  let imageUrl = ''
-  if (image && typeof image !== 'string') {
-    const fileUpload = await storage.createFile(BUCKET_ID, 'unique()', image)
-    imageUrl = storage.getFileView(BUCKET_ID, fileUpload.$id)
-  } else {
-    imageUrl = image
+// Fetch all blogs
+export const fetchBlogs = createAsyncThunk(
+  "blog/fetchBlogs",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTION_ID
+      );
+      return response.documents.map((blog) => ({
+        ...blog,
+        createdBy: blog.createdBy || "Unknown", // Fallback if 'createdBy' is missing
+      }));
+    } catch (err) {
+      console.error("Error fetching blogs:", err);
+      return rejectWithValue("Error fetching blogs.");
+    }
   }
+);
 
-  const blog = await databases.updateDocument(DATABASE_ID, COLLECTION_ID, id, {
-    title,
-    content,
-    image: imageUrl,
-  })
+export const createBlog = createAsyncThunk(
+  "blog/createBlog",
+  async ({ title, content, image }, { rejectWithValue }) => {
+    const slug = title
+      .toLowerCase()
+      .replace(/ /g, "-")
+      .replace(/[^\w-]+/g, "");
 
-  return blog
-})
+    let imageUrl = "";
+    if (image) {
+      try {
+        const fileUpload = await storage.createFile(
+          BUCKET_ID,
+          "unique()",
+          image
+        );
+        imageUrl = storage.getFileView(BUCKET_ID, fileUpload.$id);
+      } catch (err) {
+        console.error("Image upload error:", err);
+        return rejectWithValue("Error uploading image.");
+      }
+    }
 
-export const deleteBlog = createAsyncThunk('blog/deleteBlog', async (id) => {
-  await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, id)
-  return id
-})
+    try {
+      // Ensure the user is authenticated
+      const user = await account.get();
+      console.log("Authenticated user info:", user); // Log the user info to check
+
+      if (!user || !user.$id) {
+        console.error("User is not authenticated or user ID is missing.");
+        return rejectWithValue("User not authenticated.");
+      }
+
+      const userId = user.$id;
+      const username = user.name || "Anonymous"; // Use name or default to 'Anonymous'
+
+      // Log the user details
+      console.log("Creating blog for user:", username);
+
+      // Create the blog document in the database
+      const blog = await databases.createDocument(
+        DATABASE_ID,
+        COLLECTION_ID,
+        "unique()",
+        {
+          title,
+          content,
+          slug,
+          image: imageUrl,
+          userId: userId,
+          createdBy: username, // Store the username here
+        }
+      );
+
+      return blog;
+    } catch (err) {
+      console.error("Error creating blog:", err);
+      return rejectWithValue("Error creating blog.");
+    }
+  }
+);
+
+// Update an existing blog
+export const updateBlog = createAsyncThunk(
+  "blog/updateBlog",
+  async ({ id, title, content, image }) => {
+    let imageUrl = "";
+    if (image && typeof image !== "string") {
+      const fileUpload = await storage.createFile(BUCKET_ID, "unique()", image);
+      imageUrl = storage.getFileView(BUCKET_ID, fileUpload.$id);
+    } else {
+      imageUrl = image;
+    }
+
+    const blog = await databases.updateDocument(
+      DATABASE_ID,
+      COLLECTION_ID,
+      id,
+      {
+        title,
+        content,
+        image: imageUrl,
+      }
+    );
+
+    return blog;
+  }
+);
+
+// Delete a blog
+export const deleteBlog = createAsyncThunk("blog/deleteBlog", async (id) => {
+  await databases.deleteDocument(DATABASE_ID, COLLECTION_ID, id);
+  return id;
+});
 
 const blogSlice = createSlice({
-  name: 'blog',
+  name: "blog",
   initialState: {
     blogs: [],
     currentBlog: null,
@@ -67,41 +147,43 @@ const blogSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchBlogs.pending, (state) => {
-        state.loading = true
+        state.loading = true;
       })
       .addCase(fetchBlogs.fulfilled, (state, action) => {
-        state.blogs = action.payload
-        state.loading = false
+        state.blogs = action.payload;
+        state.loading = false;
       })
       .addCase(fetchBlogs.rejected, (state, action) => {
-        state.error = action.error.message
-        state.loading = false
+        state.error = action.error.message;
+        state.loading = false;
       })
       .addCase(fetchBlogBySlug.pending, (state) => {
-        state.loading = true
+        state.loading = true;
       })
       .addCase(fetchBlogBySlug.fulfilled, (state, action) => {
-        state.currentBlog = action.payload
-        state.loading = false
+        state.currentBlog = action.payload;
+        state.loading = false;
       })
       .addCase(fetchBlogBySlug.rejected, (state, action) => {
-        state.error = action.error.message
-        state.loading = false
+        state.error = action.error.message;
+        state.loading = false;
       })
       .addCase(createBlog.fulfilled, (state, action) => {
-        state.blogs.push(action.payload)
+        state.blogs.push(action.payload);
       })
       .addCase(updateBlog.fulfilled, (state, action) => {
-        const index = state.blogs.findIndex(blog => blog.$id === action.payload.$id)
+        const index = state.blogs.findIndex(
+          (blog) => blog.$id === action.payload.$id
+        );
         if (index !== -1) {
-          state.blogs[index] = action.payload
+          state.blogs[index] = action.payload;
         }
-        state.currentBlog = action.payload
+        state.currentBlog = action.payload;
       })
       .addCase(deleteBlog.fulfilled, (state, action) => {
-        state.blogs = state.blogs.filter(blog => blog.$id !== action.payload)
-      })
+        state.blogs = state.blogs.filter((blog) => blog.$id !== action.payload);
+      });
   },
-})
+});
 
-export default blogSlice.reducer
+export default blogSlice.reducer;
