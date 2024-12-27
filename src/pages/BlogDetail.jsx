@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
 import { fetchBlogBySlug, deleteBlog, toggleLike } from "../store/blogSlice";
@@ -18,6 +18,8 @@ const BlogDetail = () => {
   const navigate = useNavigate();
   const { currentBlog, error } = useSelector((state) => state.blog);
   const { user } = useSelector((state) => state.auth);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
   useEffect(() => {
     dispatch(fetchBlogBySlug(slug));
@@ -56,6 +58,26 @@ const BlogDetail = () => {
     );
   };
 
+  const handleSwipe = () => {
+    const swipeDistance = touchEnd - touchStart;
+    if (swipeDistance > 100) {
+      // Swipe right, navigate to the previous blog
+      navigate("/blogs"); // Adjust as needed to navigate to the previous blog
+    } else if (swipeDistance < -100) {
+      // Swipe left, navigate to the next blog
+      navigate("/blogs"); // Adjust as needed to navigate to the next blog
+    }
+  };
+
+  const onTouchStart = (e) => {
+    setTouchStart(e.changedTouches[0].clientX);
+  };
+
+  const onTouchEnd = (e) => {
+    setTouchEnd(e.changedTouches[0].clientX);
+    handleSwipe();
+  };
+
   if (error) {
     return (
       <div className="text-center text-red-500 font-semibold text-xl">
@@ -73,7 +95,11 @@ const BlogDetail = () => {
   const isLiked = user && currentBlog.likes.includes(user.$id);
 
   return (
-    <div className="max-w-4xl mt-16 mx-auto px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-teal-50 to-white rounded-lg shadow-lg overflow-hidden p-6">
+    <div
+      className="max-w-4xl mt-16 mx-auto px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-teal-50 to-white rounded-lg shadow-lg overflow-hidden p-6"
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
       <div className="flex justify-between">
         {/* Back Button */}
         <button
