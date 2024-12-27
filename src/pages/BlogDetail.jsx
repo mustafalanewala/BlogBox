@@ -16,8 +16,9 @@ const BlogDetail = () => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { currentBlog, error } = useSelector((state) => state.blog);
+  const { currentBlog, error, allBlogs } = useSelector((state) => state.blog); // Assuming `allBlogs` is available
   const { user } = useSelector((state) => state.auth);
+
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
@@ -59,21 +60,30 @@ const BlogDetail = () => {
   };
 
   const handleSwipe = () => {
-    const swipeDistance = touchEnd - touchStart;
-    if (swipeDistance > 100) {
-      // Swipe right, navigate to the previous blog
-      navigate("/blogs"); // Adjust as needed to navigate to the previous blog
-    } else if (swipeDistance < -100) {
-      // Swipe left, navigate to the next blog
-      navigate("/blogs"); // Adjust as needed to navigate to the next blog
+    const currentIndex = allBlogs.findIndex((blog) => blog.slug === slug);
+
+    if (touchEnd - touchStart > 100) {
+      // Swipe right (go to previous blog)
+      const prevBlog = allBlogs[currentIndex - 1];
+      if (prevBlog) {
+        navigate(`/blog/${prevBlog.slug}`);
+      }
+    }
+
+    if (touchStart - touchEnd > 100) {
+      // Swipe left (go to next blog)
+      const nextBlog = allBlogs[currentIndex + 1];
+      if (nextBlog) {
+        navigate(`/blog/${nextBlog.slug}`);
+      }
     }
   };
 
-  const onTouchStart = (e) => {
-    setTouchStart(e.changedTouches[0].clientX);
+  const handleTouchStart = (e) => {
+    setTouchStart(e.touches[0].clientX);
   };
 
-  const onTouchEnd = (e) => {
+  const handleTouchEnd = (e) => {
     setTouchEnd(e.changedTouches[0].clientX);
     handleSwipe();
   };
@@ -97,8 +107,8 @@ const BlogDetail = () => {
   return (
     <div
       className="max-w-4xl mt-16 mx-auto px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-teal-50 to-white rounded-lg shadow-lg overflow-hidden p-6"
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <div className="flex justify-between">
         {/* Back Button */}
@@ -118,14 +128,10 @@ const BlogDetail = () => {
             aria-label={isLiked ? "Unlike" : "Like"}
           >
             <Heart
-              className={`w-6 h-6 ${
-                isLiked ? "bg-red-500" : "bg-gray-500"
-              } p-1 rounded-full mr-1`}
+              className={`w-6 h-6 ${isLiked ? "bg-red-500" : "bg-gray-500"} p-1 rounded-full mr-1`}
             />
           </button>
-          <span className="text-xl text-gray-600">
-            {currentBlog.likes.length}
-          </span>
+          <span className="text-xl text-gray-600">{currentBlog.likes.length}</span>
         </div>
       </div>
 
