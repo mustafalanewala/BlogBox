@@ -1,13 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import {
-  databases,
-  DATABASE_ID,
-  COLLECTION_ID,
-  storage,
-  BUCKET_ID,
-} from "../appwrite";
+import { databases, storage, account } from "../appwrite";
 import { Query } from "appwrite";
-import { account } from "../appwrite";
+import { DATABASE_ID, COLLECTION_ID, BUCKET_ID } from "../appwrite";
 
 // Fetch blog by slug
 export const fetchBlogBySlug = createAsyncThunk(
@@ -34,12 +28,12 @@ export const fetchBlogs = createAsyncThunk(
         createdBy: blog.createdBy || "Unknown", // Fallback if 'createdBy' is missing
       }));
     } catch (err) {
-      console.error("Error fetching blogs:", err);
       return rejectWithValue("Error fetching blogs.");
     }
   }
 );
 
+// Create a new blog
 export const createBlog = createAsyncThunk(
   "blog/createBlog",
   async ({ title, content, image }, { rejectWithValue }) => {
@@ -57,29 +51,18 @@ export const createBlog = createAsyncThunk(
           image
         );
         imageUrl = storage.getFileView(BUCKET_ID, fileUpload.$id);
-      } catch (err) {
-        console.error("Image upload error:", err);
+      } catch {
         return rejectWithValue("Error uploading image.");
       }
     }
 
     try {
-      // Ensure the user is authenticated
       const user = await account.get();
-      console.log("Authenticated user info:", user); // Log the user info to check
-
-      if (!user || !user.$id) {
-        console.error("User is not authenticated or user ID is missing.");
-        return rejectWithValue("User not authenticated.");
-      }
+      if (!user?.$id) return rejectWithValue("User not authenticated.");
 
       const userId = user.$id;
-      const username = user.name || "Anonymous"; // Use name or default to 'Anonymous'
+      const username = user.name || "Anonymous";
 
-      // Log the user details
-      console.log("Creating blog for user:", username);
-
-      // Create the blog document in the database
       const blog = await databases.createDocument(
         DATABASE_ID,
         COLLECTION_ID,
@@ -89,14 +72,13 @@ export const createBlog = createAsyncThunk(
           content,
           slug,
           image: imageUrl,
-          userId: userId,
-          createdBy: username, // Store the username here
+          userId,
+          createdBy: username,
         }
       );
 
       return blog;
-    } catch (err) {
-      console.error("Error creating blog:", err);
+    } catch {
       return rejectWithValue("Error creating blog.");
     }
   }
@@ -106,12 +88,10 @@ export const createBlog = createAsyncThunk(
 export const updateBlog = createAsyncThunk(
   "blog/updateBlog",
   async ({ id, title, content, image }) => {
-    let imageUrl = "";
+    let imageUrl = image;
     if (image && typeof image !== "string") {
       const fileUpload = await storage.createFile(BUCKET_ID, "unique()", image);
       imageUrl = storage.getFileView(BUCKET_ID, fileUpload.$id);
-    } else {
-      imageUrl = image;
     }
 
     const blog = await databases.updateDocument(
@@ -135,26 +115,29 @@ export const deleteBlog = createAsyncThunk("blog/deleteBlog", async (id) => {
   return id;
 });
 
-// Likes
+// Toggle like on a blog
 export const toggleLike = createAsyncThunk(
   "blog/toggleLike",
   async ({ blogId, userId, isLiked }, { rejectWithValue }) => {
     try {
       const blog = await databases.getDocument(
-        "databaseId",
-        "collectionId",
+        DATABASE_ID,
+        COLLECTION_ID,
         blogId
       );
       const updatedLikes = isLiked
-        ? blog.likes.filter((id) => id !== userId) // Remove like
-        : [...blog.likes, userId]; // Add like
+        ? blog.likes.filter((id) => id !== userId)
+        : [...(blog.likes || []), userId];
 
       const updatedBlog = await databases.updateDocument(
-        "databaseId",
-        "collectionId",
+        DATABASE_ID,
+        COLLECTION_ID,
         blogId,
-        { likes: updatedLikes }
+        {
+          likes: updatedLikes,
+        }
       );
+
       return updatedBlog;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -170,7 +153,6 @@ const blogSlice = createSlice({
     loading: false,
     error: null,
   },
-  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(fetchBlogs.pending, (state) => {
@@ -212,12 +194,16 @@ const blogSlice = createSlice({
       })
       .addCase(toggleLike.fulfilled, (state, action) => {
         const updatedBlog = action.payload;
-        state.blogs = state.blogs.map((blog) =>
-          blog.$id === updatedBlog.$id ? updatedBlog : blog
+        const index = state.blogs.findIndex(
+          (blog) => blog.$id === updatedBlog.$id
         );
+        if (index !== -1) {
+          state.blogs[index] = updatedBlog;
+        }
+        state.currentBlog = updatedBlog;
       })
       .addCase(toggleLike.rejected, (state, action) => {
-        state.error = action.payload;
+        console.error("Failed to update like:", action.payload);
       });
   },
 });

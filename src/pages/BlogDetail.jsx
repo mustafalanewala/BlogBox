@@ -47,7 +47,10 @@ const BlogDetail = () => {
   };
 
   const handleLike = () => {
+    if (!currentBlog) return; // Guard against null currentBlog
+
     const isLiked = currentBlog.likes.includes(user.$id);
+
     dispatch(
       toggleLike({ blogId: currentBlog.$id, userId: user.$id, isLiked })
     );
@@ -71,14 +74,36 @@ const BlogDetail = () => {
 
   return (
     <div className="max-w-4xl mt-16 mx-auto px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-teal-50 to-white rounded-lg shadow-lg overflow-hidden p-6">
-      <button
-        onClick={() => navigate("/blogs")}
-        className="flex items-center text-blue-500 hover:text-blue-700 mb-6 transition-all duration-300 ease-in-out transform hover:scale-105"
-      >
-        <ArrowLeft className="w-5 h-5 mr-2" />
-        Back to Blogs
-      </button>
+      <div className="flex justify-between">
+        {/* Back Button */}
+        <button
+          onClick={() => navigate("/blogs")}
+          className="flex items-center text-blue-500 hover:text-blue-700 mb-6 transition-all duration-300 ease-in-out transform hover:scale-105"
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back to Blogs
+        </button>
 
+        {/* Like Button Positioned After the Back Button */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={handleLike}
+            className="flex items-center justify-center text-xl"
+            aria-label={isLiked ? "Unlike" : "Like"}
+          >
+            <Heart
+              className={`w-6 h-6 ${
+                isLiked ? "bg-red-500" : "bg-gray-500"
+              } p-1 rounded-full mr-1`}
+            />
+          </button>
+          <span className="text-xl text-gray-600">
+            {currentBlog.likes.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Blog Image */}
       {currentBlog.image && (
         <img
           src={currentBlog.image}
@@ -87,17 +112,15 @@ const BlogDetail = () => {
         />
       )}
 
-      <div className="pt-6">
+      <div className="relative pt-6">
         <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-800 hover:text-blue-600 transition-all duration-300 ease-in-out">
           {currentBlog.title}
         </h2>
 
-        <div className="flex flex-col sm:flex-row sm:justify-between text-sm text-gray-500 mb-6 gap-4">
+        <div className="flex flex-col sm:flex-row sm:justify-between text-md text-gray-600 mb-6 gap-4">
           <div className="flex items-center">
-            <UserCircle className="w-6 h-6 mr-2 text-blue-600" />
-            <span className="text-gray-700 font-medium">
-              {currentBlog.createdBy}
-            </span>
+            <UserCircle className="w-7 h-7 mr-2 text-blue-600" />
+            <span>{currentBlog.createdBy}</span>
           </div>
           <div className="flex items-center">
             <Calendar className="w-6 h-6 mr-2 text-blue-600" />
@@ -116,22 +139,6 @@ const BlogDetail = () => {
           >
             <Share2 className="w-5 h-5 mr-2" />
             Share
-          </button>
-
-          <button
-            onClick={handleLike}
-            className={`flex items-center justify-center ${
-              isLiked
-                ? "bg-pink-600 hover:bg-pink-700"
-                : "bg-pink-300 hover:bg-pink-400"
-            } text-white px-6 py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto`}
-          >
-            <Heart
-              className={`w-5 h-5 mr-2 ${
-                isLiked ? "text-white" : "text-gray-600"
-              }`}
-            />
-            {isLiked ? "Unlike" : "Like"} ({currentBlog.likes.length})
           </button>
 
           {user && user.$id === currentBlog.userId && (
