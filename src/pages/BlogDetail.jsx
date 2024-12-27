@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useParams, useNavigate } from "react-router-dom";
-import { fetchBlogBySlug, deleteBlog } from "../store/blogSlice";
+import { fetchBlogBySlug, deleteBlog, toggleLike } from "../store/blogSlice";
 import {
   UserCircle,
   Calendar,
@@ -9,6 +9,7 @@ import {
   Trash,
   ArrowLeft,
   Share2,
+  Heart,
 } from "lucide-react";
 
 const BlogDetail = () => {
@@ -45,6 +46,13 @@ const BlogDetail = () => {
     }
   };
 
+  const handleLike = () => {
+    const isLiked = currentBlog.likes.includes(user.$id);
+    dispatch(
+      toggleLike({ blogId: currentBlog.$id, userId: user.$id, isLiked })
+    );
+  };
+
   if (error) {
     return (
       <div className="text-center text-red-500 font-semibold text-xl">
@@ -59,9 +67,10 @@ const BlogDetail = () => {
     );
   }
 
+  const isLiked = user && currentBlog.likes.includes(user.$id);
+
   return (
-    <div className="max-w-4xl mt-16 mx-auto bg-gradient-to-br from-blue-50 via-teal-50 to-white rounded-lg shadow-lg overflow-hidden p-6">
-      {/* Back to Blogs Button */}
+    <div className="max-w-4xl mt-16 mx-auto px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-blue-50 via-teal-50 to-white rounded-lg shadow-lg overflow-hidden p-6">
       <button
         onClick={() => navigate("/blogs")}
         className="flex items-center text-blue-500 hover:text-blue-700 mb-6 transition-all duration-300 ease-in-out transform hover:scale-105"
@@ -70,23 +79,20 @@ const BlogDetail = () => {
         Back to Blogs
       </button>
 
-      {/* Blog Image */}
       {currentBlog.image && (
         <img
           src={currentBlog.image}
           alt={currentBlog.title}
-          className="w-full h-72 object-cover rounded-lg shadow-md"
+          className="w-full h-72 object-cover rounded-lg shadow-md mb-6 sm:h-96"
         />
       )}
 
       <div className="pt-6">
-        {/* Title */}
-        <h2 className="text-4xl font-bold mb-4 text-gray-800 hover:text-blue-600 transition-all duration-300 ease-in-out">
+        <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-gray-800 hover:text-blue-600 transition-all duration-300 ease-in-out">
           {currentBlog.title}
         </h2>
 
-        {/* Meta Information */}
-        <div className="flex items-center justify-between text-sm text-gray-500 mb-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between text-sm text-gray-500 mb-6 gap-4">
           <div className="flex items-center">
             <UserCircle className="w-6 h-6 mr-2 text-blue-600" />
             <span className="text-gray-700 font-medium">
@@ -99,34 +105,47 @@ const BlogDetail = () => {
           </div>
         </div>
 
-        {/* Blog Content */}
-        <div className="prose max-w-none mb-8 text-gray-700">
+        <div className="prose max-w-none mb-8 text-gray-700 text-base sm:text-lg">
           {currentBlog.content}
         </div>
 
-        {/* Buttons - Share, Edit, Delete */}
-        <div className="flex items-center gap-6 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-6 gap-4 mb-8">
           <button
             onClick={handleShare}
-            className="flex items-center bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105"
+            className="flex items-center justify-center bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto"
           >
             <Share2 className="w-5 h-5 mr-2" />
             Share
           </button>
 
-          {/* Edit and Delete Buttons */}
+          <button
+            onClick={handleLike}
+            className={`flex items-center justify-center ${
+              isLiked
+                ? "bg-pink-600 hover:bg-pink-700"
+                : "bg-pink-300 hover:bg-pink-400"
+            } text-white px-6 py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto`}
+          >
+            <Heart
+              className={`w-5 h-5 mr-2 ${
+                isLiked ? "text-white" : "text-gray-600"
+              }`}
+            />
+            {isLiked ? "Unlike" : "Like"} ({currentBlog.likes.length})
+          </button>
+
           {user && user.$id === currentBlog.userId && (
             <>
               <button
                 onClick={() => navigate(`/edit-blog/${currentBlog.slug}`)}
-                className="flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105"
+                className="flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto"
               >
                 <Edit className="w-5 h-5 mr-2" />
                 Edit
               </button>
               <button
                 onClick={handleDelete}
-                className="flex items-center bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105"
+                className="flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto"
               >
                 <Trash className="w-5 h-5 mr-2" />
                 Delete

@@ -135,6 +135,33 @@ export const deleteBlog = createAsyncThunk("blog/deleteBlog", async (id) => {
   return id;
 });
 
+// Likes
+export const toggleLike = createAsyncThunk(
+  "blog/toggleLike",
+  async ({ blogId, userId, isLiked }, { rejectWithValue }) => {
+    try {
+      const blog = await databases.getDocument(
+        "databaseId",
+        "collectionId",
+        blogId
+      );
+      const updatedLikes = isLiked
+        ? blog.likes.filter((id) => id !== userId) // Remove like
+        : [...blog.likes, userId]; // Add like
+
+      const updatedBlog = await databases.updateDocument(
+        "databaseId",
+        "collectionId",
+        blogId,
+        { likes: updatedLikes }
+      );
+      return updatedBlog;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 const blogSlice = createSlice({
   name: "blog",
   initialState: {
@@ -182,6 +209,15 @@ const blogSlice = createSlice({
       })
       .addCase(deleteBlog.fulfilled, (state, action) => {
         state.blogs = state.blogs.filter((blog) => blog.$id !== action.payload);
+      })
+      .addCase(toggleLike.fulfilled, (state, action) => {
+        const updatedBlog = action.payload;
+        state.blogs = state.blogs.map((blog) =>
+          blog.$id === updatedBlog.$id ? updatedBlog : blog
+        );
+      })
+      .addCase(toggleLike.rejected, (state, action) => {
+        state.error = action.payload;
       });
   },
 });
